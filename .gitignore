@@ -1,6 +1,6 @@
 .project
 .pydevproject
-settings/
+.settings/
 __pycache__/
 model-architecture-exog.png
 venv/
