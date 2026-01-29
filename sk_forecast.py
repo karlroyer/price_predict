@@ -17,6 +17,7 @@ from skforecast.model_selection import TimeSeriesFold
 from skforecast.model_selection import backtesting_forecaster
 from skforecast.deep_learning import create_and_compile_model
 from skforecast.deep_learning import ForecasterRnn
+from skforecast.utils import save_forecaster
 import sys
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.preprocessing import MinMaxScaler
@@ -49,8 +50,8 @@ def read_price_data(filename):
     priceData['datetime'] = pd.to_datetime(priceData['datetime'])
     priceData['price'] = priceData['price'].astype(float)
     priceData['datetime'] = priceData['datetime'].dt.tz_convert('UTC').dt.tz_localize(None)
-    priceData.set_index('datetime', inplace=True)
     priceData.drop_duplicates(inplace=True)
+    priceData.set_index('datetime', inplace=True)
     priceData.sort_index(inplace=True)
     return priceData
 
@@ -64,8 +65,8 @@ def readSolarData(name):
     solar_data.columns = ['datetime', name]
     solar_data['datetime'] = pd.to_datetime(solar_data['datetime'])
     solar_data[name] = solar_data[name].astype(float)
-    solar_data.set_index('datetime', inplace=True)
     solar_data.drop_duplicates(inplace=True)
+    solar_data.set_index('datetime', inplace=True)
     solar_data.sort_index(inplace=True)
     return resample_data_to_csv(solar_data);     
 
@@ -81,8 +82,8 @@ def readWindData(name):
     wind['datetime'] = pd.to_datetime(wind['datetime'])
     wind[name + '_speed'] = wind[name + '_speed'].astype(float)
     wind[name + '_direction'] = wind[name + '_direction'].astype(float)
-    wind.set_index('datetime', inplace=True)
     wind.drop_duplicates(inplace=True)
+    wind.set_index('datetime', inplace=True)
     wind.sort_index(inplace=True)
     return resample_data_to_csv(wind);     
 
@@ -101,8 +102,8 @@ def readTempHumidityRain(name):
     thr['humidity'] = thr['humidity'].astype(float)
     thr['rain'] = thr['rain'].astype(float)
    
-    thr.set_index('datetime', inplace=True)
     thr.drop_duplicates(inplace=True)
+    thr.set_index('datetime', inplace=True)
     thr.sort_index(inplace=True)
     return resample_data_to_csv(thr);     
 
@@ -187,6 +188,19 @@ print("Train size: ", priceDataTrain['price'].size)
 print("Tune size: ", priceDataTune['price'].size)
 print("Test size: ", priceDataTest['price'].size)
 
+print(
+    f"Dates train      : {priceDataTrain.index.min()} --- " 
+    f"{priceDataTrain.index.max()}  (n={len(priceDataTrain)})"
+)
+print(
+    f"Dates validation : {priceDataTune.index.min()} --- " 
+    f"{priceDataTune.index.max()}  (n={len(priceDataTune)})"
+)
+print(
+    f"Dates test       : {priceDataTest.index.min()} --- " 
+    f"{priceDataTest.index.max()}  (n={len(priceDataTest)})"
+)
+
 set_dark_theme()
 
 exog_columns = priceDataTrain.columns.to_list();
@@ -202,7 +216,7 @@ model = create_and_compile_model(
     series                  = priceDataTrain[series],         # Single-series
     levels                  = levels,                    # One target series to predict
     lags                    = lags, 
-    steps                   = 64, 
+    steps                   = 32, 
     exog                    = priceDataTrain[exog_columns],  # Exogenous variables
     recurrent_layer         = "LSTM",
     recurrent_units         = [128, 64],
@@ -228,8 +242,8 @@ forecaster = ForecasterRnn(
             EarlyStopping(monitor="val_loss", patience=4, restore_best_weights=True),
             ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=2, min_lr=1e-5, verbose=1)
         ],  # Callback to stop training when it is no longer learning and to reduce learning rate.
-        "series_val": priceDataTune[series],      # Validation data for model training.
-        "exog_val": priceDataTune[exog_columns]  # Validation data for exogenous variables
+        "series_val": priceData[series],      # Validation data for model training.
+        "exog_val": priceData[exog_columns]  # Validation data for exogenous variables
     },
 )
 
@@ -240,12 +254,22 @@ forecaster.fit(
     series = priceDataTrain[series], 
     exog   = priceDataTrain[exog_columns]
 )
+
+# Save the forecaster
+# ==============================================================================
+save_forecaster(
+    forecaster, 
+    file_name = 'forecaster_custom_features.joblib', 
+    save_custom_functions = True, 
+    verbose = False
+)
+
 # Training and overfitting tracking
 # ==============================================================================
-#fig, ax = plt.subplots(figsize=(8, 3))
-#_ = forecaster.plot_history(ax=ax)
-#plt.show();
-#sys.exit()
+fig, ax = plt.subplots(figsize=(8, 3))
+_ = forecaster.plot_history(ax=ax)
+plt.show();
+sys.exit()
 
 
 # Prediction with exogenous variables
