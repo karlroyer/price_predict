@@ -17,7 +17,7 @@ from skforecast.model_selection import TimeSeriesFold
 from skforecast.model_selection import backtesting_forecaster
 from skforecast.deep_learning import create_and_compile_model
 from skforecast.deep_learning import ForecasterRnn
-from skforecast.utils import save_forecaster
+from skforecast.utils import load_forecaster
 import sys
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.preprocessing import MinMaxScaler
@@ -198,23 +198,10 @@ estimation_steps = 4 * 24 * 7
 tune_steps       = 4 * estimation_steps
 total_steps      = estimation_steps + tune_steps
 
-priceDataTrain = priceData[:-total_steps].copy()
-priceDataTune  = priceData[-total_steps:-estimation_steps].copy()
-priceDataTest = priceData[-estimation_steps:].copy()
+priceDataTest = priceData[-total_steps:].copy()
 
-print("Orig size ", priceData['price'].size)
-print("Train size: ", priceDataTrain['price'].size)
-print("Tune size: ", priceDataTune['price'].size)
 print("Test size: ", priceDataTest['price'].size)
 
-print(
-    f"Dates train      : {priceDataTrain.index.min()} --- " 
-    f"{priceDataTrain.index.max()}  (n={len(priceDataTrain)})"
-)
-print(
-    f"Dates validation : {priceDataTune.index.min()} --- " 
-    f"{priceDataTune.index.max()}  (n={len(priceDataTune)})"
-)
 print(
     f"Dates test       : {priceDataTest.index.min()} --- " 
     f"{priceDataTest.index.max()}  (n={len(priceDataTest)})"
@@ -222,7 +209,7 @@ print(
 
 set_dark_theme()
 
-exog_columns = priceDataTrain.columns.to_list();
+exog_columns = priceData.columns.to_list();
 exog_columns.pop(0)
 print("Number of exog variables: ", len(exog_columns))
 
@@ -231,64 +218,8 @@ levels = ['price']
 lags = 72
 
 print("Exog columns ",exog_columns)
-model = create_and_compile_model(
-    series                  = priceDataTrain[series],         # Single-series
-    levels                  = levels,                    # One target series to predict
-    lags                    = lags, 
-    steps                   = 32, 
-    exog                    = priceDataTrain[exog_columns],  # Exogenous variables
-    recurrent_layer         = "LSTM",
-    recurrent_units         = [128, 64],
-    recurrent_layers_kwargs = {"activation": "tanh"},
-    dense_units             = [64, 32],
-    compile_kwargs          = {'optimizer': Adam(learning_rate=0.01), 'loss': 'mse'},
-    model_name              = "Single-Series-Multi-Step-Exog2"
-)
 
-print(model.summary())
-
-# ==============================================================================
-forecaster = ForecasterRnn(
-    estimator=model,
-    levels=levels,
-    lags=lags, 
-    transformer_series=MinMaxScaler(),
-    transformer_exog=MinMaxScaler(),
-    fit_kwargs={
-        "epochs": 25, 
-        "batch_size": 512, 
-        "callbacks": [
-            EarlyStopping(monitor="val_loss", patience=4, restore_best_weights=True),
-            ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=2, min_lr=1e-5, verbose=1)
-        ],  # Callback to stop training when it is no longer learning and to reduce learning rate.
-        "series_val": priceData[series],      # Validation data for model training.
-        "exog_val": priceData[exog_columns]  # Validation data for exogenous variables
-    },
-)
-
-
-# Create and fit forecaster
-# ==============================================================================
-forecaster.fit(
-    series = priceDataTrain[series], 
-    exog   = priceDataTrain[exog_columns]
-)
-
-# Save the forecaster
-# ==============================================================================
-save_forecaster(
-    forecaster, 
-    file_name = 'forecaster_custom_features.joblib', 
-    save_custom_functions = True, 
-    verbose = False
-)
-
-# Training and overfitting tracking
-# ==============================================================================
-fig, ax = plt.subplots(figsize=(8, 3))
-_ = forecaster.plot_history(ax=ax)
-plt.show();
-sys.exit()
+forecaster = load_forecaster('forecaster_custom_features.joblib', verbose=True)
 
 
 # Prediction with exogenous variables
@@ -299,36 +230,7 @@ predictions = forecaster.predict(
 
 fig, ax = plt.subplots(figsize=(7, 3.5))
 priceDataTest['price'].plot(ax=ax, label='test')
-priceDataTune['price'].plot(ax=ax, label='tune')
-predictions.loc[predictions["level"] == levels, "pred"].plot(ax=ax, label="predictions")
+predictions["pred"].plot(ax=ax, label="predictions")
 ax.legend()
 plt.show()
-sys.exit()
-cv = TimeSeriesFold(
-         steps                 = 10,
-         initial_train_size    = priceDataTrain['price'].size,
-         refit                 = True,
-         fixed_train_size      = False,
-         gap                   = 0,
-         skip_folds            = None,
-         allow_incomplete_fold = True
-     )
-
-metric, predictions_backtest = backtesting_forecaster(
-    forecaster    = forecaster,
-    y             = priceData['price'],
-    exog          = priceData[exog_columns],
-    cv            = cv,
-    metric        = 'mean_squared_error',
-)
-
-# Plot predictions
-# ==============================================================================
-fig, ax = plt.subplots(figsize=(6, 3))
-priceDataTest['price'].plot(ax=ax)
-priceDataTune['price'].plot(ax=ax)
-predictions_backtest['pred'].plot(ax=ax)
-ax.legend(loc="upper left")
-plt.show();
-print(f"Backtest error: {metric}")
 sys.exit()
