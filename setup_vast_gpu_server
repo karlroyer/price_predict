@@ -1,0 +1,9 @@
+ssh-keygen
+python3 -m venv myenv
+source myenv/bin/activate
+pip install pandas
+pip install skforecast
+pip install matplotlib
+pip install seaborn
+pip install statsmodels
+pip install keras
