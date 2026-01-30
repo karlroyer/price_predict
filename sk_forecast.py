@@ -198,6 +198,7 @@ estimation_steps = 4 * 24 * 7
 tune_steps       = 4 * estimation_steps
 total_steps      = estimation_steps + tune_steps
 
+trimmedPriceData = priceData[:-estimation_steps].copy()
 priceDataTrain = priceData[:-total_steps].copy()
 priceDataTune  = priceData[-total_steps:-estimation_steps].copy()
 priceDataTest = priceData[-estimation_steps:].copy()
@@ -232,11 +233,11 @@ lags = 72
 
 print("Exog columns ",exog_columns)
 model = create_and_compile_model(
-    series                  = priceDataTrain[series],         # Single-series
+    series                  = trimmedPriceData[series],         # Single-series
     levels                  = levels,                    # One target series to predict
     lags                    = lags, 
-    steps                   = 32, 
-    exog                    = priceDataTrain[exog_columns],  # Exogenous variables
+    steps                   = estimation_steps, 
+    exog                    = trimmedPriceData[exog_columns],  # Exogenous variables
     recurrent_layer         = "LSTM",
     recurrent_units         = [128, 64],
     recurrent_layers_kwargs = {"activation": "tanh"},
@@ -261,8 +262,8 @@ forecaster = ForecasterRnn(
             EarlyStopping(monitor="val_loss", patience=4, restore_best_weights=True),
             ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=2, min_lr=1e-5, verbose=1)
         ],  # Callback to stop training when it is no longer learning and to reduce learning rate.
-        "series_val": priceData[series],      # Validation data for model training.
-        "exog_val": priceData[exog_columns]  # Validation data for exogenous variables
+        "series_val": priceDataTune[series],      # Validation data for model training.
+        "exog_val": priceDataTune[exog_columns]  # Validation data for exogenous variables
     },
 )
 
@@ -270,8 +271,8 @@ forecaster = ForecasterRnn(
 # Create and fit forecaster
 # ==============================================================================
 forecaster.fit(
-    series = priceDataTrain[series], 
-    exog   = priceDataTrain[exog_columns]
+    series = trimmedPriceData[series], 
+    exog   = trimmedPriceData[exog_columns]
 )
 
 # Save the forecaster

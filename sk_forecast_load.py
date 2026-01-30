@@ -227,6 +227,7 @@ forecaster = load_forecaster('forecaster_custom_features.joblib', verbose=True)
 predictions = forecaster.predict(
     exog = priceDataTest[exog_columns]
 )
+print("Size of predicted data ",predictions['pred'].size)
 
 fig, ax = plt.subplots(figsize=(7, 3.5))
 priceDataTest['price'].plot(ax=ax, label='test')
