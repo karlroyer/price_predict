@@ -18,7 +18,6 @@ from skforecast.model_selection import backtesting_forecaster
 from skforecast.deep_learning import create_and_compile_model
 from skforecast.deep_learning import ForecasterRnn
 from skforecast.utils import save_forecaster
-import sys
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.preprocessing import MinMaxScaler
 from keras.optimizers import Adam
@@ -184,13 +183,13 @@ priceData['weekday_cos'] = cos_transformer(7).fit_transform(priceData.index.day_
 priceData['monthday_sin'] = sin_transformer(12).fit_transform(priceData.index.month)
 priceData['monthday_cos'] = cos_transformer(12).fit_transform(priceData.index.month)
 
+# Trim data window to 2024-01-01 to 2025-09-01
 mask = (priceData.index > '2024-01-01') & (priceData.index <= '2025-09-01')
 priceData = priceData.loc[mask]
 priceData.to_csv('data/actual_data_to_anlayse.csv')
         
-# Now fit the prophet model to data
+# Now create the forecaster
 print('Creating sklearn models')
-# Create and fit forecaster
 
 # Lets estimate 7 days of data, and use 4 times us much to train model
 estimation_steps = 4 * 24 * 7
@@ -228,7 +227,7 @@ print("Number of exog variables: ", len(exog_columns))
 
 series = ['price']
 levels = ['price']
-lags = 72
+lags = 100
 
 print("Exog columns ",exog_columns)
 model = create_and_compile_model(
@@ -256,7 +255,7 @@ forecaster = ForecasterRnn(
     transformer_exog=MinMaxScaler(),
     fit_kwargs={
         "epochs": 25, 
-        "batch_size": 512, 
+        "batch_size": 64, 
         "callbacks": [
             EarlyStopping(monitor="val_loss", patience=4, restore_best_weights=True),
             ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=2, min_lr=1e-5, verbose=1)
@@ -278,7 +277,7 @@ forecaster.fit(
 # ==============================================================================
 save_forecaster(
     forecaster, 
-    file_name = 'forecaster_custom_features.joblib', 
+    file_name = 'forecaster_rnn.joblib', 
     save_custom_functions = True, 
     verbose = False
 )
@@ -330,5 +329,5 @@ priceDataTune['price'].plot(ax=ax)
 predictions_backtest['pred'].plot(ax=ax)
 ax.legend(loc="upper left")
 plt.show();
-print(f"Backtest error: {metric}")
-sys.exit()
+
+

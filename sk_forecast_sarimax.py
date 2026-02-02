@@ -182,7 +182,9 @@ priceData['monthday_cos'] = cos_transformer(12).fit_transform(priceData.index.mo
 # Trim data window to 2024-01-01 to 2025-09-01
 mask = (priceData.index > '2024-01-01') & (priceData.index <= '2025-09-01')
 priceData = priceData.loc[mask]
+priceData.to_csv('data/actual_data_to_anlayse.csv')
         
+# Now create the forecaster
 print('Creating sklearn models')
 
 # Lets estimate 7 days of data
@@ -218,11 +220,6 @@ forecaster.fit(
     y                 = trimmedPriceData['price'], 
     exog              = trimmedPriceData[exog_columns],
     suppress_warnings = True
-)
-
-forecaster.fit(
-    series = trimmedPriceData[['price']],
-    exog   = trimmedPriceData[exog_columns]
 )
 
 # Remove price from test data so we are sure we estimate the 7 days...

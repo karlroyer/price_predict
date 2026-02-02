@@ -180,7 +180,9 @@ priceData['monthday_cos'] = cos_transformer(12).fit_transform(priceData.index.mo
 
 mask = (priceData.index > '2024-01-01') & (priceData.index <= '2025-09-01')
 priceData = priceData.loc[mask]
+priceData.to_csv('data/actual_data_to_anlayse.csv')
         
+# Now create the forecaster
 print('Creating sklearn models')
 
 # Lets estimate 7 days of data
@@ -218,9 +220,21 @@ forecaster = ForecasterRecursiveMultiSeries(regressor          = LGBMRegressor(r
                  dropna_from_series = False
              )
 
+
+# Create and fit forecaster
+# ==============================================================================
 forecaster.fit(
     series = trimmedPriceData[['price']],
     exog   = trimmedPriceData[exog_columns]
+)
+
+# Save the forecaster
+# ==============================================================================
+save_forecaster(
+    forecaster, 
+    file_name = 'forecaster_rms.joblib', 
+    save_custom_functions = True, 
+    verbose = False
 )
 
 # The test data should not really have the price column as this
@@ -246,4 +260,4 @@ priceDataForGraph['price'].plot(ax=ax, label='test')
 predictions['pred'].plot(ax=ax, label="predictions")
 ax.legend()
 plt.show()
-sys.exit()
+
