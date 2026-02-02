@@ -184,10 +184,9 @@ priceData['weekday_cos'] = cos_transformer(7).fit_transform(priceData.index.day_
 priceData['monthday_sin'] = sin_transformer(12).fit_transform(priceData.index.month)
 priceData['monthday_cos'] = cos_transformer(12).fit_transform(priceData.index.month)
 
-priceData.to_csv('data/banana.csv')
 mask = (priceData.index > '2024-01-01') & (priceData.index <= '2025-09-01')
 priceData = priceData.loc[mask]
-priceData.to_csv('data/banana2.csv')
+priceData.to_csv('data/actual_data_to_anlayse.csv')
         
 # Now fit the prophet model to data
 print('Creating sklearn models')
@@ -195,11 +194,11 @@ print('Creating sklearn models')
 
 # Lets estimate 7 days of data, and use 4 times us much to train model
 estimation_steps = 4 * 24 * 7
-tune_steps       = 4 * estimation_steps
+tune_steps       = 2 * estimation_steps
 total_steps      = estimation_steps + tune_steps
 
 trimmedPriceData = priceData[:-estimation_steps].copy()
-priceDataTrain = priceData[:-total_steps].copy()
+priceDataTrain = priceData[:-estimation_steps].copy()
 priceDataTune  = priceData[-total_steps:-estimation_steps].copy()
 priceDataTest = priceData[-estimation_steps:].copy()
 
