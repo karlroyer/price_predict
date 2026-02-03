@@ -9,7 +9,7 @@ os.environ["KERAS_BACKEND"] = 'torch'
 # Plots
 # ==============================================================================
 import matplotlib.pyplot as plt
-from skforecast.plot import set_dark_theme
+
 
 # Modeling and Forecasting
 # ==============================================================================
@@ -18,28 +18,21 @@ from skforecast.model_selection import backtesting_forecaster
 from skforecast.deep_learning import create_and_compile_model
 from skforecast.deep_learning import ForecasterRnn
 from skforecast.utils import save_forecaster
+from skforecast.plot import set_dark_theme
+
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.pipeline import make_pipeline
+
+from feature_engine.datetime import DatetimeFeatures
+from feature_engine.creation import CyclicalFeatures
+
 from keras.optimizers import Adam
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau
-from keras.utils import plot_model
+
+import sys
 
 data_dir = 'data/'
-# Cyclical encoding with sine/cosine transformation
-# ==============================================================================
-def sin_transformer(period):
-    """
-    Returns a transformer that applies sine transformation to a variable using
-    the specified period.
-    """
-    return FunctionTransformer(lambda x: np.sin(x / period * 2 * np.pi))
-
-def cos_transformer(period):
-    """
-    Returns a transformer that applies cosine transformation to a variable using
-    the specified period.
-    """
-    return FunctionTransformer(lambda x: np.cos(x / period * 2 * np.pi))
 
 def read_price_data(filename):
     # Read data
@@ -178,16 +171,43 @@ for exog_col_name in exog_features:
         print("Skipping exog column " + exog_col_name)
 
 # Add month sin and cos and weekday sin and cos
-priceData['weekday_sin'] = sin_transformer(7).fit_transform(priceData.index.day_of_week)
-priceData['weekday_cos'] = cos_transformer(7).fit_transform(priceData.index.day_of_week)
-priceData['monthday_sin'] = sin_transformer(12).fit_transform(priceData.index.month)
-priceData['monthday_cos'] = cos_transformer(12).fit_transform(priceData.index.month)
+# Calendar features
+# ==============================================================================
+features_to_extract_and_encode = [
+    'month',
+    'week',
+    'day_of_week',
+    'hour'
+]
+max_values = {
+    "month":       12,
+    "week":        52,
+    "day_of_week": 7,
+    "hour":        24,
+}
+calendar_transformer = DatetimeFeatures(
+    variables           = 'index',
+    features_to_extract = features_to_extract_and_encode,
+    drop_original       = False,
+)
+cyclical_encoder = CyclicalFeatures(
+    variables     = features_to_extract_and_encode,
+    max_values    = max_values,
+    drop_original = True
+)
+
+exog_transformer = make_pipeline(
+    calendar_transformer,
+    cyclical_encoder
+)
+priceData = exog_transformer.fit_transform(priceData);
+
 
 # Trim data window to 2024-01-01 to 2025-09-01
 mask = (priceData.index > '2024-01-01') & (priceData.index <= '2025-09-01')
 priceData = priceData.loc[mask]
 priceData.to_csv('data/actual_data_to_anlayse.csv')
-        
+
 # Now create the forecaster
 print('Creating sklearn models')
 
@@ -234,7 +254,7 @@ model = create_and_compile_model(
     series                  = trimmedPriceData[series],         # Single-series
     levels                  = levels,                    # One target series to predict
     lags                    = lags, 
-    steps                   = estimation_steps, 
+    steps                   = 1, 
     exog                    = trimmedPriceData[exog_columns],  # Exogenous variables
     recurrent_layer         = "LSTM",
     recurrent_units         = [128, 64],
@@ -255,7 +275,7 @@ forecaster = ForecasterRnn(
     transformer_exog=MinMaxScaler(),
     fit_kwargs={
         "epochs": 25, 
-        "batch_size": 64, 
+        "batch_size": 256, 
         "callbacks": [
             EarlyStopping(monitor="val_loss", patience=4, restore_best_weights=True),
             ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=2, min_lr=1e-5, verbose=1)
@@ -273,6 +293,11 @@ forecaster.fit(
     exog   = trimmedPriceData[exog_columns]
 )
 
+# Track training and overfitting
+# ==============================================================================
+fig, ax = plt.subplots(figsize=(8, 3))
+_ = forecaster.plot_history(ax=ax)
+sys.exit()
 # Save the forecaster
 # ==============================================================================
 save_forecaster(
