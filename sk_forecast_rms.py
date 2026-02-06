@@ -17,7 +17,7 @@ import sys
 
 import argparse
 
-data_dir = 'data/'
+data_dir = ''
 
 def read_datetime_csv(filename):
     # Read data
@@ -51,7 +51,6 @@ forecaster = ForecasterRecursiveMultiSeries(
 exog_columns = dataTrain.columns.to_list();
 exog_columns.pop(0)
 
-print(dataTrain.head)
 # Create and fit forecaster
 # ==============================================================================
 forecaster.fit(
@@ -66,8 +65,6 @@ predictions = forecaster.predict(
     steps = dataTestNoPrice[exog_columns[0]].size,
     exog  = dataTestNoPrice[exog_columns]
 )
-
-print(args)
 
 if (args.show_accuracy):
     dataTest = read_datetime_csv(args.c + '_test.csv')
