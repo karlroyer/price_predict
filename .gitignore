@@ -4,3 +4,4 @@
 __pycache__/
 model-architecture-exog.png
 venv/
+Docker/*.py
