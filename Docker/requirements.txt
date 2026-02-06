@@ -1,0 +1,8 @@
+pandas
+skforecast
+matplotlib
+seaborn
+statsmodels
+keras
+torch
+lightgbm

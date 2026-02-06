@@ -1,0 +1,39 @@
+#!/bin/bash
+
+DATA_DIR=/usr/src/app/data/
+if [ "${DATA_NAME}" == "" ]; then
+    echo "Need environment DATA_NAME to point to csv file prefix for _train.csv and _future.csv" >&2
+    exit 1
+fi
+
+if [ ! -f "${DATA_DIR}${DATA_NAME}_train.csv" ]; then
+    echo "File ${DATA_NAME}_train.csv not in volume ${DATA_DIR}" >& 2
+    exit 1
+fi
+
+if [ ! -f "${DATA_DIR}${DATA_NAME}_future.csv" ]; then
+    echo "File ${DATA_NAME}_future.csv not in volume ${DATA_DIR}" >& 2
+    exit 1
+fi
+
+if [ "${SHOW_ACCURACY}" == "" ]; then
+    if [ ! -f "${DATA_DIR}${DATA_NAME}_test.csv" ]; then
+        echo "File ${DATA_NAME}_test.csv not in volume ${DATA_DIR}" >& 2
+        exit 1
+    fi
+    if [ "${OP_FILE}" != "" ]; then
+        python sk_forecast_rms.py -s -c ${DATA_DIR}${DATA_NAME} -f ${DATA_DIR}${OP_FILE}
+    else
+        python sk_forecast_rms.py -s -c ${DATA_DIR}${DATA_NAME}
+    fi
+fi
+
+if [ "${OP_FILE}" != "" ]; then
+    python sk_forecast_rms.py -c ${DATA_DIR}${DATA_NAME} -f ${DATA_DIR}${OP_FILE}
+else
+    python sk_forecast_rms.py -c ${DATA_DIR}${DATA_NAME}
+fi
+
+  
+	
+
