@@ -1,4 +1,5 @@
 #!/bin/bash
 
-cp ../*.py .
+cp ../sk_forecast_rms.py .
 docker build -t price_predict:latest .
+rm sk_forecast_rms.py
